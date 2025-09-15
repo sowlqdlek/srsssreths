@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스마트 에어컨 시뮬레이션</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.smart-ac-container {
+    width: 90%;
+    max-width: 1000px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+}
+
+.header {
+    grid-column: 1 / -1;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 20px;
+}
+
+.header h1 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 2em;
+}
+
+.sensor-data, .ai-analysis, .ac-status {
+    background: #f9f9f9;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+h2 {
+    margin-top: 0;
+    color: #34495e;
+    font-size: 1.5em;
+    display: flex;
+    align-items: center;
+}
+
+h2 img {
+    margin-right: 10px;
+}
+
+.gauge-container {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+}
+
+.gauge {
+    width: 100px;
+    height: 100px;
+    position: relative;
+}
+
+.gauge-value {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.2em;
+    font-weight: 700;
+    z-index: 10;
+    background: white;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.gauge-label {
+    text-align: center;
+    margin-top: 15px;
+    font-weight: 300;
+    font-size: 0.9em;
+}
+
+#ai-thought {
+    background: #e8f4f8;
+    border-left: 5px solid #3498db;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 5px;
+    min-height: 100px;
+}
+
+.status-light {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #bdc3c7;
+    display: inline-block;
+    margin-right: 10px;
+    transition: background-color 0.5s;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+}
+
+#power-status-light.on { background-color: #2ecc71; }
+#cooling-status-light.on { background-color: #3498db; }
+#heating-status-light.on { background-color: #e67e22; }
+#fan-status-light.on { background-color: #f1c40f; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="smart-ac-container">
+    <div class="header">
+        <h1>스마트 에어컨 🌬️</h1>
+    </div>
+
+    <div class="sensor-data">
+        <h2><img src="https://img.icons8.com/ios/50/000000/temperature--v1.png" alt="센서 아이콘" width="40"/>센서 데이터</h2>
+        <div class="gauge-container">
+            <div>
+                <canvas id="temp-gauge" class="gauge"></canvas>
+                <div id="temp-value" class="gauge-value">22°C</div>
+                <div class="gauge-label">온도</div>
+            </div>
+            <div>
+                <canvas id="humidity-gauge" class="gauge"></canvas>
+                <div id="humidity-value" class="gauge-value">50%</div>
+                <div class="gauge-label">습도</div>
+            </div>
+            <div>
+                <canvas id="air-quality-gauge" class="gauge"></canvas>
+                <div id="air-quality-value" class="gauge-value">좋음</div>
+                <div class="gauge-label">공기질</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ai-analysis">
+        <h2><img src="https://img.icons8.com/ios/50/000000/processor.png" alt="AI 아이콘" width="40"/>AI 분석</h2>
+        <div id="ai-thought"></div>
+    </div>
+
+    <div class="ac-status">
+        <h2><img src="https://img.icons8.com/ios/50/000000/air-conditioner.png" alt="에어컨 아이콘" width="40"/>에어컨 상태</h2>
+        <div class="status-item">
+            <div id="power-status-light" class="status-light"></div>
+            <span>전원</span>
+        </div>
+        <div class="status-item">
+            <div id="cooling-status-light" class="status-light"></div>
+            <span>냉방</span>
+        </div>
+        <div class="status-item">
+            <div id="heating-status-light" class="status-light"></div>
+            <span>난방</span>
+        </div>
+        <div class="status-item">
+            <div id="fan-status-light" class="status-light"></div>
+            <span>송풍/공기청정</span>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const tempValue = document.getElementById('temp-value');
+    const humidityValue = document.getElementById('humidity-value');
+    const airQualityValue = document.getElementById('air-quality-value');
+
+    const powerLight = document.getElementById('power-status-light');
+    const coolingLight = document.getElementById('cooling-status-light');
+    const heatingLight = document.getElementById('heating-status-light');
+    const fanLight = document.getElementById('fan-status-light');
+
+    const aiThought = document.getElementById('ai-thought');
+
+    const airQualityLevels = {0:'좋음', 1:'보통', 2:'나쁨'};
+
+    function createGauge(ctx, color, max){
+        return new Chart(ctx, {
+            type:'doughnut',
+            data:{ datasets:[{data:[50,max-50], backgroundColor:[color,'#e9ecef'], borderWidth:0}]},
+            options:{ rotation:-90, circumference:180, cutout:'80%', plugins:{ tooltip:{enabled:false}}}
+        });
+    }
+
+    const tempGaugeChart = createGauge(document.getElementById('temp-gauge').getContext('2d'),'#e74c3c',50);
+    const humidityGaugeChart = createGauge(document.getElementById('humidity-gauge').getContext('2d'),'#3498db',100);
+    const airQualityGaugeChart = createGauge(document.getElementById('air-quality-gauge').getContext('2d'),'#2ecc71',2);
+
+    function updateGauge(chart,value,max,color){
+        chart.data.datasets[0].data[0]=value;
+        chart.data.datasets[0].data[1]=max-value;
+        if(color) chart.data.datasets[0].backgroundColor[0]=color;
+        chart.update();
+    }
+
+    function simulateSensors(){
+        const temp = 22 + (Math.random()*10-5);
+        const humidity = 50 + (Math.random()*20-10);
+        const airQuality = Math.floor(Math.random()*3);
+
+        tempValue.textContent=`${temp.toFixed(1)}°C`;
+        humidityValue.textContent=`${humidity.toFixed(0)}%`;
+        airQualityValue.textContent=airQualityLevels[airQuality];
+
+        updateGauge(tempGaugeChart,temp,50,'#e74c3c');
+        updateGauge(humidityGaugeChart,humidity,100,'#3498db');
+        let aqColor = airQuality===0?'#2ecc71':airQuality===1?'#f1c40f':'#e74c3c';
+        updateGauge(airQualityGaugeChart,airQuality,2,aqColor);
+
+        runAI(temp,humidity,airQuality);
+    }
+
+    function runAI(temp,humidity,airQuality){
+        let thought = [];
+        let isPower=false, isCooling=false, isHeating=false, isFan=false;
+
+        if(temp>26){ isPower=isCooling=true; thought.push("온도가 높습니다. 냉방을 가동합니다."); }
+        else if(temp<18){ isPower=isHeating=true; thought.push("온도가 낮습니다. 난방을 가동합니다."); }
+        if(humidity>60){ isPower=isFan=true; thought.push("습도가 높아 송풍으로 제습합니다."); }
+        if(airQuality>0){ isPower=isFan=true; thought.push("공기질이 좋지 않아 공기청정기를 가동합니다."); }
+        if(!isPower){ thought.push("환경이 최적 상태입니다. 시스템이 대기 중입니다."); }
+
+        // 텍스트 즉시 갱신
+        aiThought.textContent = thought.join(' ');
+
+        // 상태 라이트 즉시 갱신
+        powerLight.classList.toggle('on', isPower);
+        coolingLight.classList.toggle('on', isCooling);
+        heatingLight.classList.toggle('on', isHeating);
+        fanLight.classList.toggle('on', isFan);
+    }
+
+    setInterval(simulateSensors,5000);
+    simulateSensors();
+});
+</script>
+</body>
+</html>
